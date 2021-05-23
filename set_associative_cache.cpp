@@ -1,12 +1,27 @@
 #include <fstream>
 #include <bits/stdc++.h>
-#include "FIFO.cpp"
-#include "LRU.cpp"
 using namespace std;
 
 
-class Cache {
+class SetAssociativeCache {
 public:
+
+	/*
+	* @param
+	* cacheSize = size of cache(int word units)
+	* blockSize = size of cache block (in word units)
+	* numOfBlock = number of blocks in cache
+	* numOfSets = number of sets for cache
+	* offSetBits = number of offset bits in address
+	* setBits = number of set bits in address
+	* tagBits = number of tag bits in address
+	* replacementPolicy = represents replacement policy for cache (1 = FIFO, 2 = LRU)
+	* tags = data structure to store tag bits
+	* valid = data structure to store valid bits
+	* data = data structure to store data
+	* fifo = instance of FIFO replacement policy
+	* lru = instance of LRU replacement policy
+	*/
 	int cacheSize;
 	int blockSize;
 	int ways;
@@ -15,13 +30,23 @@ public:
 	int offsetBits;
 	int setBits;
 	int tagBits;
+	int replacementPolicy;
 	vector<int> tags;
 	vector<bool> valid;
 	vector<int> data;
 	FIFO fifo;
 	LRU lru;
 
-	Cache(int blockSize, int cacheSize, int ways) {
+	/*
+	* @constructor
+	* 
+	* @param
+	* blockSize = represents block size for cache (in word units)
+	* cacheSize = represents cache size for cache (in word units)
+	* ways = represents number of ways
+	* replacement = represents replacement policy for cache (1 = FIFO, 2 = LRU)
+	*/
+	SetAssociativeCache(int blockSize, int cacheSize, int ways, int replacement) {
 		this->cacheSize = cacheSize;
 		this->blockSize = blockSize;
 		this->ways = ways;
@@ -32,72 +57,69 @@ public:
 		this->tagBits = 16 - offsetBits - setBits;
 		this->tags.reserve(numOfBlock);
 		this->valid.reserve(numOfBlock);
+		this->replacementPolicy = replacement;
 		for(int i = 0; i < numOfBlock; i++) {
 			valid[i] = false;
 		}
 		this->data.reserve(numOfBlock);
-		this->fifo = FIFO(this->ways, this->numOfSets);
-		this->lru = LRU(this->ways, this->numOfSets);
-		// cout << "number of blocks :" << numOfBlock << endl;
-		// cout << "number of offSet bits : " << offsetBits << endl;
+		if(replacement == 1) {
+			this->fifo = FIFO(this->ways, this->numOfSets);
+		} else {
+			this->lru = LRU(this->ways, this->numOfSets);
+		}
 	}
 
+	/*
+	* @method
+	* method to get data from cache given mem address
+	* 
+	* @param
+	* addr = represnets memory address to access data
+	*/
 	int get(int addr) {
+		// fetching offset bits from mem address
 		int offSet = addr & (int) pow(2, offsetBits) - 1;
-		// cout << "offSet bits : " << offSet << endl;
+		
+		// fetching set bits from mem address
 		addr = addr >> offsetBits;
 		int set = addr & (int) pow(2, setBits) - 1;
-		// cout << "set : " << set << endl;
+		
+		// fetching tag bits from mem address
 		int tag = addr >> setBits;
-		// cout << "tag : " << tag << endl;
-		int index = lru.getIndex(tag, set, this->ways, tags, valid);
-		// cout << "index : " << index << endl;
-		// cout << "--------------------------------" << endl;
+		
+		// fetching index from replacement policy instance
+		int index = replacementPolicy == 1 ? fifo.getIndex(tag, set, this->ways, tags, valid) : lru.getIndex(tag, set, this->ways, tags, valid);
 		return data[index];
 	}
+
+	/*
+	* @method
+	* method to print valid, tag and data tables
+	*/
+	void display() {
+		cout << "VALID tabel" << endl;
+
+		for(int i = 0; i < numOfBlock; i++) {
+			cout << i << " : " << (valid[i] ? "1" : "0") << endl;
+		}
+		
+		cout << "TAG tabel" << endl;
+
+		stringstream ss;
+		for(int i = 0; i < numOfBlock; i++) {
+			ss.str("");
+			ss << hex << tags[i];
+			string temp = ss.str();
+			cout << i << " : " <<  temp << endl;
+		}
+
+		cout << "DATA tabel" << endl;
+
+		for(int i = 0; i < numOfBlock; i++) {
+			ss.str("");
+			ss << hex << data[i];
+			string temp = ss.str();
+			cout << i << " : " <<  temp << endl;
+		}
+	}
 };
-
-
-
-/*
-* @method
-* method to read file into vector seperated by coma ","
-*
-* @param
-* filename = filename to be read
-*/
-vector<string> readDataIntoVector(string filename) {
-	ifstream f(filename);
-	stringstream strStream;
-	strStream << f.rdbuf();
-	string str = strStream.str();
-	f.close();
-
-	vector<string> truth;
-	stringstream ss(str);
-	while(ss.good()) {
-		string substr;
-		getline(ss, substr, ',');
-		truth.push_back(substr);
-	}
-	
-	return truth;
-}
-
-
-int main() {
-
-	Cache cache = Cache(1, 16, 2);
-	vector<string> data = readDataIntoVector("LW-sAddrs.txt");
-	
-	int indx = 0, total = data.size();
-	while(indx < 10000) {
-		string addr = data[indx % total];
-		// cout << "address:" << addr << endl;
-		indx++;
-		int data = cache.get(stoi(addr, 0, 16));
-	}
-	cout << "hits : " << cache.lru.hit << endl;
-	cout << "miss : " << cache.lru.miss << endl;
-	return 0;
-}

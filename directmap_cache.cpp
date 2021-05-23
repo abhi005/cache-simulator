@@ -1,10 +1,24 @@
-#include <fstream>
 #include <bits/stdc++.h>
 
 using namespace std;
 
-class Cache {
+class DirectMapCache {
 public:
+
+	/*
+	* @param
+	* cacheSize = size of cache(int word units)
+	* blockSize = size of cache block (in word units)
+	* numOfBlock = number of blocks in cache
+	* offSetBits = number of offset bits in address
+	* indexBits = number of index bits in address
+	* tagBits = number of tag bits in address
+	* tags = data structure to store tag bits
+	* valid = data structure to store valid bits
+	* data = data structure to store data
+	* hit = represents number of hits
+	* miss = represents number of miss
+	*/
 	int cacheSize;
 	int blockSize;
 	int numOfBlock;
@@ -17,7 +31,14 @@ public:
 
 	int hit;
 	int miss;
-	Cache(int blockSize, int cacheSize) {
+
+	/*
+	* @construnctor
+	* @param
+	* blockSize = represents number of blocksize for cache (in word units)
+	* cacheSize = represnts number of cache size for cache (in word units)
+	*/
+	DirectMapCache(int blockSize, int cacheSize) {
 		this->cacheSize = cacheSize;
 		this->blockSize = blockSize;
 		this->numOfBlock = cacheSize / blockSize;
@@ -32,29 +53,39 @@ public:
 		}
 		this->hit = 0;
 		this->miss = 0;
-
-		// cout << "number of blocks :" << numOfBlock << endl;
 	}
 
+
+	/*
+	* @method
+	* method to get data from cache
+	*
+	* @param
+	* addr = represents memory address
+	*/
 	int get(int addr) {
+		// fetching offset bits from mem address
 		int offSet = addr & (int) pow(2, offsetBits - 1);
-		// cout << "offSet bits : " << offSet << endl;
+
+		// fetching index bits from mem address
 		addr = addr >> offsetBits;
 		int index = addr % numOfBlock;
-		// cout << "index : " << index << endl;
+
+		// fetching tag bits from mem address
 		int tag = addr >> indexBits;
-		// cout << "tag : " << tag << endl;
+
+		// case : tag is present at index - hit
 		if(valid[index] == true && tags[index] == tag) {
-			// cout << "hit" << endl;
 			this->hit++;
 		} else {
-			// cout << "miss" << endl;
+		// case : tag is not present at index - miss
 			this->miss++;
 			valid[index] = true;
 			tags[index] = tag;
-			// geting data from memory
-			data[index] = 0; // dummy data
+			data[index] = rand();
 		}
+
+		// fetching required offset byte from word
 		int res = data[index];
 		if(offSet == 0) {
 			res = res & 0b11111111;
@@ -63,48 +94,35 @@ public:
 		}
 		return res;
 	}
+
+	/*
+	* @method
+	* method to display valid, tag and data table
+	*/
+	void display() {
+		cout << "VALID tabel" << endl;
+
+		for(int i = 0; i < numOfBlock; i++) {
+			cout << i << " : " << (valid[i] ? "1" : "0") << endl;
+		}
+		
+		cout << "TAG tabel" << endl;
+
+		stringstream ss;
+		for(int i = 0; i < numOfBlock; i++) {
+			ss.str("");
+			ss << hex << tags[i];
+			string temp = ss.str();
+			cout << i << " : " <<  temp << endl;
+		}
+
+		cout << "DATA tabel" << endl;
+
+		for(int i = 0; i < numOfBlock; i++) {
+			ss.str("");
+			ss << hex << data[i];
+			string temp = ss.str();
+			cout << i << " : " <<  temp << endl;
+		}
+	}
 };
-
-
-/*
-* @method
-* method to read file into vector seperated by coma ","
-*
-* @param
-* filename = filename to be read
-*/
-vector<string> readDataIntoVector(string filename) {
-	ifstream f(filename);
-	stringstream strStream;
-	strStream << f.rdbuf();
-	string str = strStream.str();
-	f.close();
-
-	vector<string> truth;
-	stringstream ss(str);
-	while(ss.good()) {
-		string substr;
-		getline(ss, substr, ',');
-		truth.push_back(substr);
-	}
-	
-	return truth;
-}
-
-
-int main() {
-
-	Cache cache = Cache(1, 16);
-	vector<string> data = readDataIntoVector("LW-sAddrs.txt");
-	
-	int indx = 0, total = data.size();
-	while(indx < 10000) {
-		string addr = data[indx % total];
-		// cout << "address:" << addr << endl;
-		indx++;
-		int data = cache.get(stoi(addr, 0, 16));
-	}
-	cout << "hits : " << cache.hit << endl;
-	cout << "miss : " << cache.miss << endl;
-	return 0;
-}
